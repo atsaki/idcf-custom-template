@@ -1,0 +1,44 @@
+---
+
+- hosts: vagrant_box
+  gather_facts: no
+  pre_tasks:
+    - include: set_ansible_ssh_host.yml
+  tasks:
+    - name: "vagrantユーザーを追加"
+      user:
+        name: "vagrant"
+        password: "{{ 'vagrant'|password_hash('sha512') }}"
+
+    - name: "rootユーザーのパスワードをvagrantに変更"
+      user:
+        name: "root"
+        password: "{{ 'vagrant'|password_hash('sha512') }}"
+
+    - name: "vagrantユーザーの公開鍵をauthorized_keysに登録"
+      authorized_key:
+        user: "vagrant"
+        key: "https://raw.githubusercontent.com/mitchellh/vagrant/master/keys/vagrant.pub"
+
+    - name: "sudoの設定変更"
+      copy:
+        dest: "/etc/sudoers.d/{{ item }}"
+        content: |
+          {{ item }} ALL=(ALL) NOPASSWD: ALL
+          Defaults:{{ item }} !requiretty
+          \n 
+      with_items:
+        - "root"
+        - "vagrant"
+
+    - name: "CloudStackのパスワード、SSH鍵設定機能の無効化"
+      service:
+        name: "{{ item }}"
+        enabled: no
+      with_items:
+        - cloud-set-guest-sshkey
+        - cloud-set-guest-sshkey.service
+        - cloud-set-guest-password
+        - cloud-set-guest-password.service
+      ignore_errors: yes
+

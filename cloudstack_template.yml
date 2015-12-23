@@ -1,0 +1,228 @@
+---
+
+- hosts: cloudstack_template
+  gather_facts: no
+  pre_tasks:
+    - include: set_ansible_ssh_host.yml
+  tasks:
+    - name: "作成済みのスナップショットを削除"
+      shell: >
+        cs listSnapshots \
+          name={{ inventory_hostname }} |
+        jq -r ".snapshot[]?.id" |
+        xargs -I {} cs deleteSnapshot id={}
+      connection: local
+      register: res
+      changed_when: res.stdout != ""
+    
+    - name: "作成済みのボリュームの削除"
+      cs_volume:
+        name: "{{ inventory_hostname }}"
+        zone: "{{ zone_name }}"
+        force: yes
+        state: absent
+      connection: local
+    
+    - name: "仮想マシンのステータスを確認"
+      cs_instance:
+        name: "{{ inventory_hostname }}"
+        zone: "{{ zone_name }}"
+        state: present
+      connection: local
+      register: vm
+    
+    - name: "ROOTボリュームのIDを取得"
+      shell: >
+        cs listVolumes \
+          type=ROOT \
+          virtualmachineid={{ vm.id }} |
+        jq -r ".volume[0]"
+      connection: local
+      changed_when: no
+      register: volume
+    
+    - name: "仮想マシンをシャットダウン"
+      shell: |
+        type systemctl > /dev/null 2>&1
+        if [ $? -eq 0 ]
+        then
+          shutdown -h -t 10
+        else
+          shutdown -h now
+        fi
+      when: vm.state == "Running"
+    
+    - name: "ステータスがStoppedになるまで待機"
+      cs_instance:
+        name: "{{ inventory_hostname }}"
+        zone: "{{ zone_name }}"
+      connection: local
+      register: vm
+      until: vm.state == "Stopped"
+      retries: 100
+      delay: 10
+    
+    - name: "ROOTボリュームのスナップショットを作成"
+      shell: >
+        cs createSnapshot \
+          name={{ inventory_hostname }} \
+          volumeid={{ (volume.stdout|from_json).id }}
+      connection: local
+    
+    - name: "スナップショットからテンプレート作成用ボリュームを作成"
+      cs_volume:
+        zone: "{{ zone_name }}"
+        name: "{{ inventory_hostname }}"
+        snapshot: "{{ inventory_hostname }}"
+      connection: local
+    
+    - name: "スナップショットを削除"
+      shell: >
+        cs listSnapshots \
+          name={{ inventory_hostname }} |
+        jq -r ".snapshot[]?.id" |
+        xargs -I {} cs deleteSnapshot id={}
+      connection: local
+      register: res
+      changed_when: res.stdout != ""
+    
+    - name: "テンプレート作成用ボリュームのサイズ変更"
+      cs_volume:
+        zone: "{{ zone_name }}"
+        name: "{{ inventory_hostname }}"
+        size: "{{ template_volume_size }}"
+      connection: local
+      when: template_volume_size is defined
+    
+    - name: "仮想マシンを起動"
+      cs_instance:
+        name: "{{ inventory_hostname }}"
+        zone: "{{ zone_name }}"
+        state: started
+      connection: local
+    
+    - name: "SSHで接続可能になるまで待機"
+      wait_for:
+        host: "{{ ansible_ssh_host }}"
+        port: "{{ ansible_ssh_port|default(22) }}"
+        search_regex: "OpenSSH"
+      connection: local
+    
+    - name: "テンプレート作成用ボリュームをアタッチ"
+      cs_volume:
+        zone: "{{ zone_name }}"
+        name: "{{ inventory_hostname }}"
+        vm: "{{ inventory_hostname }}"
+        state: attached
+      connection: local
+    
+    - name: "テンプレート作成用ボリュームのファイルシステムサイズ変更"
+      shell: | 
+        for f in $(ls /sys/class/scsi_host/)
+        do
+          echo "- - -" > /sys/class/scsi_host/$f/scan
+        done
+
+        echo "2048,,83,*" | sfdisk -uS --force /dev/sdb
+
+        blkid | grep /dev/sdb1 | grep -q xfs
+        if [ $? -eq 0 ]
+        then
+          mkdir -p /mnt/data
+          mount -o nouuid /dev/sdb1 /mnt/data
+          xfs_growfs /mnt/data
+          umount /mnt/data
+          rmdir /mnt/data
+        else
+          e2fsck -fp /dev/sdb1
+          resize2fs /dev/sdb1
+        fi
+      when: template_volume_size is defined
+    
+    - name: "テンプレート作成用ボリュームのマウント"
+      shell: |
+        mkdir -p /mnt/data
+
+        blkid | grep /dev/sdb1 | grep -q xfs
+        if [ $? -eq 0 ]
+        then
+          mount -o nouuid /dev/sdb1 /mnt/data
+        else
+          mount /dev/sdb1 /mnt/data
+        fi
+
+    - name: "テンプレートの/etc/hostnameをクリア"
+      shell: |
+        if [ -f /mnt/data/etc/hostname ] 
+        then
+          echo localhost > /mnt/data/etc/hostname
+        fi
+
+    - name: "テンプレートからrootのssh関連ファイルを削除"
+      shell: |
+        rm -fv /mnt/data/root/.ssh/*
+      when: cloudstack_template_remove_root_ssh_files
+
+    - name: "テンプレートからrootのヒストリファイルを削除"
+      shell: |
+        rm -fv /mnt/data/root/.*history*
+      when: cloudstack_template_remove_root_history_files
+
+    - name: "テンプレートからログファイルを削除"
+      shell: |
+        find /mnt/data/var/log/ -type f | xargs -I {} sh -c "echo '' > {}"
+      when: cloudstack_template_remove_log_files
+
+    - name: "テンプレートから不要なネットワーク関連ファイルを削除"
+      shell: |
+        rm -frv /mnt/data/{{ item }}
+      with_items:
+        - /etc/udev/rules.d/70-persistent-net.rules
+        - /var/lib/NetworkManager/*
+        - /var/lib/dhcp/dhclient.*
+        - /var/lib/dhclient/*
+
+    - name: "テンプレート作成用ボリュームのアンマウント"
+      shell: |
+        umount /mnt/data
+        rmdir /mnt/data
+    
+    - name: "テンプレート作成用ボリュームをデタッチ"
+      cs_volume:
+        zone: "{{ zone_name }}"
+        name: "{{ inventory_hostname }}"
+        vm: "{{ inventory_hostname }}"
+        state: detached
+      connection: local
+      register: volume
+    
+    - name: "テンプレート作成用ボリュームのスナップショットを作成"
+      shell: >
+        cs createSnapshot \
+          name={{ inventory_hostname }} \
+          volumeid={{ volume.id }} |
+        jq -r '.jobresult.snapshot'
+      register: snapshot
+      connection: local
+
+    - name: "オリジナルのテンプレートの情報を取得"
+      shell: >
+        cs listTemplates \
+          name="{{ template_name }}" \
+          templatefilter=all |
+        jq -r '.template | map(select(.zonename == "{{ zone_name }}")) | .[0]'
+      connection: local
+      changed_when: no
+      register: original_template
+
+    - name: "テンプレート作成用ボリュームのスナップショットからテンプレート作成"
+      shell: >
+        cs createTemplate \
+          name="{{ inventory_hostname }}" \
+          displaytext="{{ inventory_hostname }}" \
+          snapshotid="{{ (snapshot.stdout|from_json).id }}" \
+          ostypeid="{{ (original_template.stdout|from_json).ostypeid }}" \
+          isdynamicallyscalable="{{ cloudstack_template_is_dynamically_scalable }}" \
+          passwordenabled="{{ cloudstack_template_password_enabled }}"
+      connection: local
+

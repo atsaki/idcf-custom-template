@@ -1,0 +1,11 @@
+---
+
+ssh_public_key_file: "./ansible_ssh.pub"
+zone_name: "joule"
+network_name: "joule-network1"
+service_offering_name: "light.S1"
+template_name: "CentOS 7.1 64-bit"
+firewall_rules:
+  - { protocol: "tcp", start_port: 22, end_port: 22 }
+port_forwarding_rules:
+  - { protocol: "tcp", public_port: 22, private_port: 22 }

@@ -1,0 +1,27 @@
+---
+
+- set_fact:
+    vm_cache_dir: "{{ cache_dir + '/' + inventory_hostname }}"
+
+- name: "取得済みIPアドレスの確認"
+  stat:
+    path: "{{ vm_cache_dir + '/ip_address' }}"
+  register: cache_ip_address
+  connection: local
+  failed_when: not cache_ip_address.stat.exists
+
+- name: "ansible_ssh_hostに取得済みのIPをセット"
+  set_fact:
+    ansible_ssh_host: "{{ lookup('file', vm_cache_dir + '/ip_address') }}"
+
+- name: "仮想マシンのステータスを確認"
+  cs_instance:
+    name: "{{ inventory_hostname }}"
+    zone: "{{ zone_name }}"
+    state: present
+  connection: local
+  register: instance
+
+- name: "ホスト情報の取得"
+  setup:
+  when: instance.state == "Running"
