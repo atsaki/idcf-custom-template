@@ -1,8 +1,8 @@
 ---
 
 ssh_public_key_file: "./ansible_ssh.pub"
-zone_name: "joule"
-network_name: "joule-network1"
+zone_name: "augusta"
+network_name: "augusta-network1"
 service_offering_name: "light.S1"
 template_name: "CentOS 7.1 64-bit"
 firewall_rules:
