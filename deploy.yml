@@ -58,7 +58,7 @@
         start_port: "{{ item.start_port }}"
         end_port: "{{ item.end_port }}"
         cidr: "{{ item.cidr|default('0.0.0.0/0') }}"
-      with_items: firewall_rules
+      with_items: "{{ firewall_rules }}"
     
     - name: "ポートフォワーディングルールの設定"
       cs_portforward:
@@ -68,7 +68,7 @@
         protocol: "{{ item.protocol }}"
         public_port: "{{ item.public_port }}"
         private_port: "{{ item.private_port }}"
-      with_items: port_forwarding_rules
+      with_items: "{{ port_forwarding_rules }}"
     
     - name: "SSHで接続可能になるまで待機"
       wait_for:
