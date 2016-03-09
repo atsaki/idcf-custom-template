@@ -104,7 +104,7 @@
     - name: "SSHで接続可能になるまで待機"
       wait_for:
         host: "{{ ansible_ssh_host }}"
-        port: "{{ ansible_ssh_port|default(22) }}"
+        port: "{{ ansible_ssh_port if ansible_ssh_port else 22 }}"
         search_regex: "OpenSSH"
       connection: local
     

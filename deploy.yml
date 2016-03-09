@@ -73,7 +73,7 @@
     - name: "SSHで接続可能になるまで待機"
       wait_for:
         host: "{{ ip_address }}"
-        port: "{{ ansible_ssh_port|default(22) }}"
+        port: "{{ ansible_ssh_port if ansible_ssh_port else 22 }}"
         search_regex: "OpenSSH"
 
     - name: "authorized_keysの設定に時間がかかる場合があるので余分に待機"
