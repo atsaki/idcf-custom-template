@@ -1,0 +1,65 @@
+---
+
+- hosts: cloud_init
+  gather_facts: no
+  pre_tasks:
+    - include: tasks/set_ansible_ssh_host.yml
+      vars:
+        vm_name: "{{ inventory_hostname }}"
+  tasks:
+    - name: "cloud-initをインストール(CentOS)"
+      yum:
+        name: "cloud-init"
+        update_cache: yes
+      when: ansible_distribution == "CentOS"
+
+    - name: "cloud-initをインストール(Ubuntu)"
+      apt:
+        name: "cloud-init"
+        update_cache: yes
+      when: ansible_distribution == "Ubuntu"
+
+    - name: "cloud-initを有効化"
+      service:
+        name: "cloud-init"
+        enabled: yes
+
+    - name: "cloud-initがCloudStackのUserDataを使用するよう設定"
+      copy:
+        dest: "/etc/cloud/cloud.cfg.d/99_cloudstack.cfg"
+        content: |
+          datasource:
+            CloudStack: {}
+            None: {}
+
+          datasource_list:
+            - CloudStack
+
+    - name: "CentOS用の変数設定"
+      set_fact:
+        cloudinit_distro: "rhel"
+        cloudinit_ssh_svcname: "sshd"
+      when: ansible_distribution == "CentOS"
+      
+    - name: "Ubuntu用の変数設定"
+      set_fact:
+        cloudinit_distro: "ubuntu"
+        cloudinit_ssh_svcname: "ssh"
+      when: ansible_distribution == "Ubuntu"
+
+    - name: "cloud.cfgの作成"
+      template:
+        src: "templates/etc/cloud/cloud.cfg.j2"
+        dest: "/etc/cloud/cloud.cfg"
+
+    - name: "CloudStackのパスワード、SSH鍵設定機能の無効化"
+      service:
+        name: "{{ item }}"
+        enabled: no
+      with_items:
+        - cloud-set-guest-sshkey
+        - cloud-set-guest-sshkey.service
+        - cloud-set-guest-password
+        - cloud-set-guest-password.service
+      ignore_errors: yes
+

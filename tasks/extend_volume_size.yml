@@ -1,0 +1,62 @@
+---
+
+- set_fact:
+    temp_vm: "{{ inventory_hostname }}-temp"
+
+- name: "ボリュームのサイズ変更"
+  cs_volume:
+    zone: "{{ zone_name }}"
+    name: "{{ inventory_hostname }}"
+    size: "{{ template_volume_size }}"
+  connection: local
+
+- include: tasks/deploy_vm.yml
+  vars:
+    vm_name: "{{ temp_vm }}"
+
+- name: "ボリュームをファイルシステムサイズ変更用のVMにアタッチ"
+  cs_volume:
+    zone: "{{ zone_name }}"
+    name: "{{ inventory_hostname }}"
+    vm: "{{ temp_vm }}"
+    state: attached
+  connection: local
+
+- include: tasks/set_ansible_ssh_host.yml
+  vars:
+    vm_name: "{{ temp_vm }}"
+
+- name: "ファイルシステムサイズ変更"
+  shell: | 
+    for f in $(ls /sys/class/scsi_host/)
+    do
+      echo "- - -" > /sys/class/scsi_host/$f/scan
+    done
+
+    echo "2048,,83,*" | sfdisk -uS --force /dev/sdb
+
+    blkid | grep /dev/sdb1 | grep -q xfs
+    if [ $? -eq 0 ]
+    then
+      mkdir -p /mnt/data
+      mount -o nouuid /dev/sdb1 /mnt/data
+      xfs_growfs /mnt/data
+      umount /mnt/data
+      rmdir /mnt/data
+    else
+      e2fsck -fp /dev/sdb1
+      resize2fs /dev/sdb1
+    fi
+  delegate_to: "{{ temp_vm }}"
+
+- name: "ボリュームをファイルシステムサイズ変更用のVMからデタッチ"
+  cs_volume:
+    zone: "{{ zone_name }}"
+    name: "{{ inventory_hostname }}"
+    vm: "{{ temp_vm }}"
+    state: detached
+  connection: local
+
+- include: tasks/clean.yml
+  vars:
+    vm_name: "{{ temp_vm }}"

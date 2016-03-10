@@ -1,0 +1,91 @@
+---
+
+- set_fact:
+    vm_cache_dir: "{{ cache_dir + '/' + vm_name }}"
+  connection: local
+
+- name: "キャッシュ用ディレクトリの作成"
+  file:
+    path: "{{ vm_cache_dir }}"
+    state: "directory"
+    mode: "0755"
+  connection: local
+
+- name: "SSH公開鍵の登録"
+  cs_sshkeypair:
+    name: "{{ vm_name }}"
+    public_key: "{{ lookup('file', ssh_public_key_file) }}"
+  connection: local
+
+- name: "VMの作成"
+  cs_instance:
+    name: "{{ vm_name }}"
+    zone: "{{ zone_name }}"
+    networks: ["{{ network_name }}"]
+    service_offering: "{{ service_offering_name }}"
+    template: "{{ template_name }}"
+    ssh_key: "{{ vm_name }}"
+    state: started
+  connection: local
+  register: vm
+
+- name: "取得済みIPアドレスの確認"
+  stat:
+    path: "{{ vm_cache_dir + '/ip_address' }}"
+  register: cache_ip_address
+  connection: local
+
+- name: "新規IPアドレスの取得"
+  cs_ip_address:
+    zone: "{{ zone_name }}"
+    network: "{{ network_name }}"
+  connection: local
+  register: ip_address
+  when: not cache_ip_address.stat.exists
+
+- name: "取得したIPアドレスをキャッシュへ書き込み"
+  copy:
+    content: "{{ ip_address.ip_address }}"
+    dest: "{{ vm_cache_dir + '/ip_address' }}"
+  connection: local
+  when: not cache_ip_address.stat.exists
+
+- name: "IPアドレスのキャッシュ読み込み"
+  set_fact:
+    ip_address: "{{ lookup('file', vm_cache_dir + '/ip_address') }}"
+  connection: local
+
+- name: "ファイアウォールルールの設定"
+  cs_firewall:
+    zone: "{{ zone_name }}"
+    ip_address: "{{ ip_address }}"
+    protocol: "{{ item.protocol }}"
+    start_port: "{{ item.start_port }}"
+    end_port: "{{ item.end_port }}"
+    cidr: "{{ item.cidr|default('0.0.0.0/0') }}"
+  with_items: "{{ firewall_rules }}"
+  connection: local
+
+- name: "ポートフォワーディングルールの設定"
+  cs_portforward:
+    zone: "{{ zone_name }}"
+    ip_address: "{{ ip_address }}"
+    vm: "{{ vm.id }}"
+    protocol: "{{ item.protocol }}"
+    public_port: "{{ item.public_port }}"
+    private_port: "{{ item.private_port }}"
+  with_items: "{{ port_forwarding_rules }}"
+  connection: local
+
+- name: "SSHで接続可能になるまで待機"
+  wait_for:
+    host: "{{ ip_address }}"
+    port: "{{ ansible_ssh_port if ansible_ssh_port else 22 }}"
+    search_regex: "OpenSSH"
+  connection: local
+
+- name: "authorized_keysの設定に時間がかかる場合があるので余分に待機"
+  pause: minutes=2
+  connection: local
+  when: vm|changed
+

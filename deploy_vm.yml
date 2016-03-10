@@ -1,8 +1,8 @@
 ---
 
 - hosts: cloudstack
-  connection: local
+  gather_facts: no
   tasks:
-    - include: tasks/clean.yml
+    - include: tasks/deploy_vm.yml
       vars:
         vm_name: "{{ inventory_hostname }}"

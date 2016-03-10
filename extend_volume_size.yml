@@ -1,0 +1,19 @@
+---
+
+- hosts: cloudstack_template
+  gather_facts: no
+  tasks:
+    - name: "ボリュームの情報を取得"
+      shell: >
+        cs listVolumes \
+          type=DATA \
+          name={{ inventory_hostname }} |
+        jq -r ".volume[0]"
+      connection: local
+      changed_when: no
+      register: volume
+
+    - include: tasks/extend_volume_size.yml
+      # when: >
+      #   template_volume_size is defined and 
+      #   (volume.stdout|from_json).size|int != template_volume_size|int * 2**30

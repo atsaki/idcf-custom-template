@@ -1,0 +1,70 @@
+---
+
+- set_fact:
+    vm_cache_dir: "{{ cache_dir + '/' + vm_name }}"
+  connection: local
+
+- name: "SSH公開鍵の削除"
+  cs_sshkeypair:
+    name: "{{ vm_name }}"
+    state: absent
+  connection: local
+
+- name: "取得済みIPアドレスの確認"
+  stat:
+    path: "{{ vm_cache_dir + '/ip_address' }}"
+  connection: local
+  register: cache_ip_address
+
+- name: "IPアドレスのキャッシュ読み込み"
+  set_fact:
+    ip_address: "{{ lookup('file', vm_cache_dir + '/ip_address') }}"
+  connection: local
+  when: cache_ip_address.stat.exists
+
+- name: "IPアドレスの解放"
+  cs_ip_address:
+    zone: "{{ zone_name }}"
+    network: "{{ network_name }}"
+    ip_address: "{{ ip_address }}"
+    state: absent
+  connection: local
+  when: cache_ip_address.stat.exists
+
+- name: "IPアドレスキャッシュの削除"
+  file:
+    path: "{{ vm_cache_dir + '/ip_address' }}"
+    state: absent
+  connection: local
+  when: cache_ip_address.stat.exists
+
+- name: "VMの削除"
+  cs_instance:
+    name: "{{ vm_name }}"
+    zone: "{{ zone_name }}"
+    state: expunged
+  connection: local
+
+- name: "ボリュームの削除"
+  cs_volume:
+    name: "{{ vm_name }}"
+    zone: "{{ zone_name }}"
+    force: yes
+    state: absent
+  connection: local
+
+- name: "スナップショットの削除"
+  shell: >
+    cs listSnapshots \
+      name={{ vm_name }} |
+    jq -r ".snapshot[]?.id" |
+    xargs -I {} cs deleteSnapshot id={}
+  connection: local
+  register: res
+  changed_when: res.stdout != ""
+
+- name: "キャッシュ用ディレクトリの削除"
+  file:
+    path: "{{ vm_cache_dir }}"
+    state: absent
+  connection: local
