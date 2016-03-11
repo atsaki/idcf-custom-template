@@ -14,6 +14,6 @@
       register: volume
 
     - include: tasks/extend_volume_size.yml
-      # when: >
-      #   template_volume_size is defined and 
-      #   (volume.stdout|from_json).size|int != template_volume_size|int * 2**30
+      when: >
+        template_volume_size is defined and 
+        (volume.stdout|from_json).size|int != template_volume_size|int * 2**30
