@@ -2,6 +2,7 @@
 
 - hosts: cloudstack_template
   gather_facts: no
+  connection: local
   tasks:
     - name: "ボリュームの情報を取得"
       shell: >
@@ -9,7 +10,6 @@
           type=DATA \
           name={{ inventory_hostname }} |
         jq -r ".volume[0]"
-      connection: local
       changed_when: no
       register: volume
 

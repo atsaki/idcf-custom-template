@@ -33,48 +33,59 @@ cloud_final_modules:
  - phone-home
  - final-message
 
-## ユーザーの設定
+{% if add_cloudinit_default_user|default(true) %}
+{# ユーザーの設定 -#}
 users:
- # デフォルトユーザーを追加
+ {# デフォルトユーザーを追加 -#}
  - default
+ {% endif %}
 
-## SSH関連の設定
-# rootでのSSH接続を禁止(/root/.ssh/authorized_keysにdisable_root_optsで指定されるオプションを追加)
+{# SSH関連の設定 -#}
+{# rootでのSSH接続を禁止(/root/.ssh/authorized_keysにdisable_root_optsで指定されるオプションを追加) -#}
 disable_root: true
-# disable_rootがtrueの際、/root/.ssh/authorized_keysに追加されるオプション
+{# disable_rootがtrueの際、/root/.ssh/authorized_keysに追加されるオプション -#}
 disable_root_opts: no-port-forwarding,no-agent-forwarding,no-X11-forwarding,command="echo 'Please login as the user \"$USER\" rather than the user \"root\".'; echo; sleep 10" 
-# パスワード認証によるSSH接続を禁止(PasswordAuthentication no)
+{# パスワード認証によるSSH接続を禁止(PasswordAuthentication no) -#}
 ssh_pwauth: false
-# SSHのホスト鍵(/etc/ssh/ssh_host_*key*)を削除
+{# SSHのホスト鍵(/etc/ssh/ssh_host_*key*)を削除 -#}
 ssh_deletekeys: true
-# 生成するSSHのホスト鍵の種類
+{# 生成するSSHのホスト鍵の種類 -#}
 ssh_genkeytypes: ["dsa", "rsa", "ecdsa"]
 
+{% if ramdom_root_password|default(true) %}
+{# ROOTのパスワードをランダムに変更 -#}
+chpasswd:
+  list: |
+    root: RANDOM
+{% endif %}
+
 system_info:
-  # 仮想マシンのディストリビューション
-  # 以下から選択
-  # arch, debian, fedora, freebsd, gentoo, rhel, sles, ubuntu
+  {# 仮想マシンのディストリビューション -#}
+  {# 以下から選択 -#}
+  {# arch, debian, fedora, freebsd, gentoo, rhel, sles, ubuntu -#}
   distro: {{ cloudinit_distro }}
 
-  # SSHサーバーのサービス名
-  # ディストリビューションによって適切な名前に変更する
+  {# SSHサーバーのサービス名 -#}
+  {# ディストリビューションによって適切な名前に変更する -#}
   ssh_svcname: {{ cloudinit_ssh_svcname }}
 
   paths:
-    # cloud-initが各種ファイルを書き込むディレクトリのパス
+    {# cloud-initが各種ファイルを書き込むディレクトリのパス -#}
     cloud_dir: /var/lib/cloud
-    # 各種設定ファイルのテンプレートのパス
+    {# 各種設定ファイルのテンプレートのパス -#}
     templates_dir: /etc/cloud/templates
 
-  # デフォルトユーザーの設定
+  {% if add_cloudinit_default_user|default(true) %}
+  {# デフォルトユーザーの設定 -#}
   default_user:
     name: idcf-user
     gecos: IDCF Default User
-    # wheelグループに追加
+    {# wheelグループに追加 -#}
     groups: [wheel]
-    # パスワードなしでsudoできるようにする
+    {# パスワードなしでsudoできるようにする -#}
     sudo: ["ALL=(ALL) NOPASSWD:ALL"]
-    # パスワードをロックしない
-    # sudoでパスワードが必要な場合はfalseにする必要がある
+    {# パスワードをロックしない -#}
+    {# sudoでパスワードが必要な場合はfalseにする必要がある -#}
     lock_passwd: false
     shell: /bin/bash
+  {% endif %}

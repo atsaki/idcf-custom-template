@@ -10,6 +10,7 @@
     - name: "vagrantユーザーを追加"
       user:
         name: "vagrant"
+        shell: "/bin/bash"
         password: "{{ 'vagrant'|password_hash('sha512') }}"
 
     - name: "rootユーザーのパスワードをvagrantに変更"
@@ -28,7 +29,6 @@
         content: |
           {{ item }} ALL=(ALL) NOPASSWD: ALL
           Defaults:{{ item }} !requiretty
-          \n 
       with_items:
         - "root"
         - "vagrant"

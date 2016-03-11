@@ -1,0 +1,81 @@
+---
+
+- hosts: cloudstack_template
+  gather_facts: no
+  pre_tasks:
+    - include: tasks/set_ansible_ssh_host.yml
+      vars:
+        vm_name: "{{ inventory_hostname }}"
+  tasks:
+    - name: "テンプレートの/etc/hostnameをクリア"
+      shell: |
+        if [ -f /etc/hostname ] 
+        then
+          echo localhost > /etc/hostname
+        fi
+
+    - name: "テンプレートからログファイルを削除"
+      shell: |
+        find /var/log/ -type f | xargs -I {} sh -c "echo '' > {}"
+      when: cloudstack_template_remove_log_files|default(true)
+
+    - name: "不要なネットワーク関連ファイルをリスト"
+      shell: >
+        ls /etc/udev/rules.d/70-persistent-net.rules \
+           /var/lib/NetworkManager \
+           /var/lib/dhcp/dhclient.* \
+           /var/lib/dhclient/* \
+           2> /dev/null
+      ignore_errors: yes
+      register: network_files
+
+    - name: "ネットワーク関連ファイルを削除"
+      file:
+        path: "{{ item }}"
+        state: absent
+      with_items: "{{ network_files.stdout_lines }}"
+
+    - name: "rootのヒストリファイルをリスト"
+      shell: ls /root/.*history* 2> /dev/null
+      ignore_errors: yes
+      register: history_files
+      when: cloudstack_template_remove_root_history_files|default(true)
+
+    - name: "rootのヒストリファイルを削除"
+      file:
+        path: "{{ item }}"
+        state: absent
+      with_items: "{{ history_files.stdout_lines }}"
+      when: cloudstack_template_remove_root_history_files|default(true)
+
+    - name: "ホストのssh鍵をリスト"
+      shell: ls /etc/ssh/ssh_host_*key* 2> /dev/null
+      ignore_errors: yes
+      register: host_ssh_files
+      when: cloudstack_template_remove_host_ssh_files|default(true)
+
+    - name: "ホストのssh鍵を削除"
+      file:
+        path: "{{ item }}"
+        state: absent
+      with_items: "{{ host_ssh_files.stdout_lines }}"
+      when: cloudstack_template_remove_host_ssh_files|default(true)
+
+    - name: "rootのssh関連ファイルをリスト"
+      shell: ls /root/.ssh/* | grep -v authorized_keys 2> /dev/null
+      ignore_errors: yes
+      register: root_ssh_files
+      when: cloudstack_template_remove_root_ssh_files|default(true)
+
+    - name: "rootのssh関連ファイルを削除"
+      file:
+        path: "{{ item }}"
+        state: absent
+      with_items: "{{ root_ssh_files.stdout_lines }}"
+      when: cloudstack_template_remove_root_ssh_files|default(true)
+
+    - name: "rootのauthorized_keysを削除"
+      file:
+        path: "/root/.ssh/authorized_keys"
+        state: absent
+      when: cloudstack_template_remove_root_ssh_files|default(true)

@@ -1,4 +1,3 @@
 ---
 
 cloudstack_template_password_enabled: false
-add_cloudinit_default_user: false

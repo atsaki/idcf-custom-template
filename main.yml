@@ -7,6 +7,9 @@
 - include: cloud_init.yml
 - include: vagrant_box.yml
 
+# Remove files
+- include: remove_files.yml
+
 # Create Volume
 - include: create_volume_from_vm.yml
 

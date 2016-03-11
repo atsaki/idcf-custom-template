@@ -1,13 +1,8 @@
 ---
 
-- hosts:
-    - cloudstack_template
-    - worker
+- hosts: cloudstack_template
   gather_facts: no
-  pre_tasks:
-    - include: tasks/set_ansible_ssh_host.yml
-      vars:
-        vm_name: "{{ inventory_hostname }}"
+  connection: local
   tasks:
     - name: "ボリュームのIDを取得"
       shell: >
@@ -15,7 +10,6 @@
           type=DATA \
           name={{ inventory_hostname }} |
         jq -r ".volume[0]"
-      connection: local
       changed_when: no
       register: volume
       when: '"cloudstack_template" in group_names'
@@ -26,7 +20,6 @@
           name="{{ template_name }}" \
           templatefilter=all |
         jq -r '.template | map(select(.zonename == "{{ zone_name }}")) | .[0]'
-      connection: local
       changed_when: no
       register: original_template
       when: '"cloudstack_template" in group_names'
@@ -38,10 +31,8 @@
           volumeid="{{ (volume.stdout|from_json).id }}" |
         jq -r '.jobresult.snapshot'
       register: snapshot
-      connection: local
       when: '"cloudstack_template" in group_names'
 
-    - debug: var=snapshot
     - name: "スナップショットからテンプレート作成"
       shell: >
         cs createTemplate \
@@ -49,13 +40,11 @@
           displaytext="{{ inventory_hostname }}" \
           snapshotid="{{ (snapshot.stdout|from_json).id }}" \
           ostypeid="{{ (original_template.stdout|from_json).ostypeid }}" \
-          isdynamicallyscalable="{{ cloudstack_template_is_dynamically_scalable }}" \
-          passwordenabled="{{ cloudstack_template_password_enabled }}"
-      connection: local
+          isdynamicallyscalable="{{ cloudstack_template_is_dynamically_scalable|default(true) }}" \
+          passwordenabled="{{ cloudstack_template_password_enabled|default(true) }}"
       when: '"cloudstack_template" in group_names'
 
     - name: "スナップショットを削除"
       shell: >
         cs deleteSnapshot id="{{ (snapshot.stdout|from_json).id }}"
-      connection: local
       when: '"cloudstack_template" in group_names'

@@ -1,7 +1,0 @@
----
-
-cloudstack_template_remove_root_ssh_files: true
-cloudstack_template_remove_root_history_files: true
-cloudstack_template_remove_log_files: true
-cloudstack_template_is_dynamically_scalable: true
-cloudstack_template_password_enabled: true

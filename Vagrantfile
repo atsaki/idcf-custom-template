@@ -15,16 +15,18 @@ Vagrant.configure("2") do |config|
     cloudstack.pf_ip_address   = "#{ENV['CLOUDSTACK_PF_IP_ADDRESS']}"
     override.ssh.host          = "#{ENV['CLOUDSTACK_PF_IP_ADDRESS']}"
 
+    cloudstack.user_data = File.read("user_data.txt")
+
     if ENV['VAGRANT_BOX'] == "0"
-      override.ssh.username = "root"
+      override.ssh.username = "#{ENV['CLOUDSTACK_SSH_USERNAME']}"
 
       cloudstack.keypair            = "#{ENV['CLOUDSTACK_KEYPAIR']}"
       override.ssh.private_key_path = "#{ENV.fetch('CLOUDSTACK_PRIVATE_KEY_PATH',
                                                    '~/.ssh/id_rsa')}"
       override.ssh.pty = true
 
-      config.vm.synced_folder ".", "/vagrant", type: "rsync",
-          rsync__rsync_path: "rsync"
+      # config.vm.synced_folder ".", "/vagrant", type: "rsync",
+      #     rsync__rsync_path: "rsync"
     end
 
     config.vm.provision "shell", inline: "echo Hello" 

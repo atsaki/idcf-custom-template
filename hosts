@@ -1,21 +1,25 @@
-[cloud_init]
-CentOS66-cloudinit
-Ubuntu1401-cloudinit
+[standard]
+CentOS66-15G
+# CentOS71-15G
+Ubuntu1401-15G
 
 [large_disk]
 CentOS66-30G
-CentOS71-30G
+# CentOS71-30G
 Ubuntu1401-30G
 
 [vagrant_box]
-CentOS66-Vagrant-30G
-CentOS71-Vagrant-30G
-Ubuntu1401-Vagrant-30G
+CentOS66-Vagrant
+# CentOS71-Vagrant
+Ubuntu1401-Vagrant
 
 [cloudstack_template:children]
-cloud_init
+standard
 large_disk
 vagrant_box
+
+[cloud_init:children]
+cloudstack_template
 
 [cloudstack:children]
 cloudstack_template

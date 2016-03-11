@@ -2,17 +2,13 @@
 
 - hosts: cloudstack_template
   gather_facts: no
-  pre_tasks:
-    - include: tasks/set_ansible_ssh_host.yml
-      vars:
-        vm_name: "{{ inventory_hostname }}"
+  connection: local
   tasks:
-    - name: "仮想マシンのステータスを確認"
+    - name: "仮想マシンをストップ"
       cs_instance:
         name: "{{ inventory_hostname }}"
         zone: "{{ zone_name }}"
-        state: present
-      connection: local
+        state: stopped
       register: vm
     
     - name: "仮想マシンのROOTボリュームのIDを取得"
@@ -21,44 +17,20 @@
           type=ROOT \
           virtualmachineid={{ vm.id }} |
         jq -r ".volume[0]"
-      connection: local
       changed_when: no
       register: volume
-    
-    - name: "仮想マシンをシャットダウン"
-      shell: |
-        type systemctl > /dev/null 2>&1
-        if [ $? -eq 0 ]
-        then
-          shutdown -h -t 10
-        else
-          shutdown -h now
-        fi
-      when: vm.state == "Running"
-    
-    - name: "ステータスがStoppedになるまで待機"
-      cs_instance:
-        name: "{{ inventory_hostname }}"
-        zone: "{{ zone_name }}"
-      connection: local
-      register: vm
-      until: vm.state == "Stopped"
-      retries: 100
-      delay: 10
     
     - name: "ROOTボリュームのスナップショットを作成"
       shell: >
         cs createSnapshot \
           name={{ inventory_hostname }} \
           volumeid={{ (volume.stdout|from_json).id }}
-      connection: local
     
     - name: "スナップショットからボリュームを作成"
       cs_volume:
         zone: "{{ zone_name }}"
         name: "{{ inventory_hostname }}"
         snapshot: "{{ inventory_hostname }}"
-      connection: local
     
     - name: "ROOTボリュームのスナップショットを削除"
       shell: >
@@ -66,6 +38,5 @@
           name={{ inventory_hostname }} |
         jq -r ".snapshot[]?.id" |
         xargs -I {} cs deleteSnapshot id={}
-      connection: local
       register: res
       changed_when: res.stdout != ""
