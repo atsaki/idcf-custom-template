@@ -52,6 +52,20 @@
         src: "templates/etc/cloud/cloud.cfg.j2"
         dest: "/etc/cloud/cloud.cfg"
 
+    - name: "sudoの設定変更(root)"
+      copy:
+        dest: "/etc/sudoers.d/root"
+        content: |
+          root ALL=(ALL) NOPASSWD: ALL
+          Defaults:root !requiretty
+
+    - name: "sudoの設定変更(デフォルトユーザー)"
+      copy:
+        dest: "/etc/sudoers.d/{{ cloudinit_default_user }}"
+        content: |
+          Defaults:{{ cloudinit_default_user }} !requiretty
+      when: cloudinit_default_user|default("", true) != ""
+
     - name: "CloudStackのパスワード、SSH鍵設定機能の無効化"
       service:
         name: "{{ item }}"

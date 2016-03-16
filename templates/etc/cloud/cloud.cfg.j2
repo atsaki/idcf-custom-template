@@ -33,7 +33,7 @@ cloud_final_modules:
  - phone-home
  - final-message
 
-{% if add_cloudinit_default_user|default(true) %}
+{% if cloudinit_default_user %}
 {# ユーザーの設定 -#}
 users:
  {# デフォルトユーザーを追加 -#}
@@ -52,7 +52,7 @@ ssh_deletekeys: true
 {# 生成するSSHのホスト鍵の種類 -#}
 ssh_genkeytypes: ["dsa", "rsa", "ecdsa"]
 
-{% if ramdom_root_password|default(true) %}
+{% if cloudinit_ramdom_root_password %}
 {# ROOTのパスワードをランダムに変更 -#}
 chpasswd:
   list: |
@@ -75,13 +75,10 @@ system_info:
     {# 各種設定ファイルのテンプレートのパス -#}
     templates_dir: /etc/cloud/templates
 
-  {% if add_cloudinit_default_user|default(true) %}
+  {% if cloudinit_default_user -%}
   {# デフォルトユーザーの設定 -#}
   default_user:
-    name: idcf-user
-    gecos: IDCF Default User
-    {# wheelグループに追加 -#}
-    groups: [wheel]
+    name: {{ cloudinit_default_user }}
     {# パスワードなしでsudoできるようにする -#}
     sudo: ["ALL=(ALL) NOPASSWD:ALL"]
     {# パスワードをロックしない -#}

@@ -1,3 +1,8 @@
 ---
 
+cloudinit_default_user: idcf-user
+cloudinit_ramdom_root_password: true
+# cloudinit_distro: rhel
+# cloudinit_ssh_svcname: sshd
+
 cloudstack_template_password_enabled: false
