@@ -1,17 +1,17 @@
 [standard]
 CentOS66-15G
 # CentOS71-15G
-Ubuntu1401-15G
+Ubuntu1404-15G
 
 [large_disk]
 CentOS66-30G
 # CentOS71-30G
-Ubuntu1401-30G
+Ubuntu1404-30G
 
 [vagrant_box]
 CentOS66-Vagrant
 # CentOS71-Vagrant
-Ubuntu1401-Vagrant
+Ubuntu1404-Vagrant
 
 [cloudstack_template:children]
 standard
