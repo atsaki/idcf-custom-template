@@ -72,8 +72,10 @@
         enabled: no
       with_items:
         - cloud-set-guest-sshkey
+        - cloud-set-guest-sshkey.in
         - cloud-set-guest-sshkey.service
         - cloud-set-guest-password
+        - cloud-set-guest-password.in
         - cloud-set-guest-password.service
       ignore_errors: yes
 
