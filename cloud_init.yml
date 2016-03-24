@@ -52,6 +52,11 @@
         src: "templates/etc/cloud/cloud.cfg.j2"
         dest: "/etc/cloud/cloud.cfg"
 
+    - name: "syslogユーザーを追加"
+      user:
+        name: "syslog"
+        system: yes
+
     - name: "sudoの設定変更(root)"
       copy:
         dest: "/etc/sudoers.d/root"
