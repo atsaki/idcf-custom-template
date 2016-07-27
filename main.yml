@@ -4,8 +4,7 @@
 - include: deploy_vm.yml
 
 # Provision
-- include: cloud_init.yml
-- include: vagrant_box.yml
+- include: provision.yml
 
 # Remove files
 - include: remove_files.yml

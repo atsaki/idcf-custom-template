@@ -1,0 +1,78 @@
+---
+
+- name: "cloud-initをインストール(CentOS)"
+  yum:
+    name: "cloud-init"
+    update_cache: yes
+  when: ansible_distribution == "CentOS"
+
+- name: "cloud-initをインストール(Ubuntu)"
+  apt:
+    name: "cloud-init"
+    update_cache: yes
+  when: ansible_distribution == "Ubuntu"
+
+- name: "cloud-initを有効化"
+  service:
+    name: "cloud-init"
+    enabled: yes
+
+- name: "cloud-initがCloudStackのUserDataを使用するよう設定"
+  copy:
+    dest: "/etc/cloud/cloud.cfg.d/99_cloudstack.cfg"
+    content: |
+      datasource:
+        CloudStack: {}
+        None: {}
+
+      datasource_list:
+        - CloudStack
+
+- name: "CentOS用の変数設定"
+  set_fact:
+    cloudinit_distro: "rhel"
+    cloudinit_ssh_svcname: "sshd"
+  when: ansible_distribution == "CentOS"
+  
+- name: "Ubuntu用の変数設定"
+  set_fact:
+    cloudinit_distro: "ubuntu"
+    cloudinit_ssh_svcname: "ssh"
+  when: ansible_distribution == "Ubuntu"
+
+- name: "cloud.cfgの作成"
+  template:
+    src: "templates/etc/cloud/cloud.cfg.j2"
+    dest: "/etc/cloud/cloud.cfg"
+
+- name: "syslogユーザーを追加"
+  user:
+    name: "syslog"
+    system: yes
+
+- name: "sudoの設定変更(root)"
+  copy:
+    dest: "/etc/sudoers.d/root"
+    content: |
+      root ALL=(ALL) NOPASSWD: ALL
+      Defaults:root !requiretty
+
+- name: "sudoの設定変更(デフォルトユーザー)"
+  copy:
+    dest: "/etc/sudoers.d/{{ cloudinit_default_user }}"
+    content: |
+      Defaults:{{ cloudinit_default_user }} !requiretty
+  when: cloudinit_default_user|default("", true) != ""
+
+- name: "CloudStackのパスワード、SSH鍵設定機能の無効化"
+  service:
+    name: "{{ item }}"
+    enabled: no
+  with_items:
+    - cloud-set-guest-sshkey
+    - cloud-set-guest-sshkey.in
+    - cloud-set-guest-sshkey.service
+    - cloud-set-guest-password
+    - cloud-set-guest-password.in
+    - cloud-set-guest-password.service
+  ignore_errors: yes
