@@ -1,5 +1,6 @@
 ---
 
+ansible_ssh_port: 22
 ssh_public_key_file: "./ansible_ssh.pub"
 zone_name: "augusta"
 network_name: "augusta-network1"
