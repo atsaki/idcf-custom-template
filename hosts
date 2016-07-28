@@ -13,10 +13,14 @@ CentOS66-Vagrant
 # CentOS71-Vagrant
 Ubuntu1404-Vagrant
 
+[redash]
+redash
+
 [cloudstack_template:children]
 standard
 large_disk
 vagrant_box
+redash
 
 [cloud_init:children]
 cloudstack_template
