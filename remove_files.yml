@@ -14,6 +14,9 @@
           echo localhost > /etc/hostname
         fi
 
+    - name: "/tmp下のファイルを削除"
+      command: rm -rf /tmp/*
+
     - name: "テンプレートからログファイルを削除"
       shell: |
         find /var/log/ -type f | xargs -I {} sh -c "echo '' > {}"

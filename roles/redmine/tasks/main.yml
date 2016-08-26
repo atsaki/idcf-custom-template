@@ -1,0 +1,7 @@
+---
+
+- include: system.yml
+- include: pg.yml
+- include: ruby.yml
+- include: redmine.yml
+- include: apache.yml

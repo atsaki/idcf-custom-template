@@ -1,0 +1,135 @@
+- name: Redmineがインストールされているか確認
+  stat:
+    path: "{{ redmine_dir }}"
+  register:
+    redmine_dir_stat
+
+- block:
+    - name: Redmineがダウンロード済みか確認
+      stat:
+        path: "{{ work_dir }}/redmine-{{ redmine_version }}.tar.gz"
+      register:
+        redmine_tarball_stat
+    
+    - name: Redmineのソースコードのダウンロード
+      get_url:
+        url: "{{ redmine_download_url }}/redmine-{{ redmine_version }}.tar.gz"
+        dest: "{{ work_dir }}"
+      when: not redmine_tarball_stat.stat.exists
+    
+    - name: Redmineのソースコードを展開
+      unarchive:
+        src: "{{ work_dir }}/redmine-{{ redmine_version }}.tar.gz"
+        dest: "{{ work_dir }}"
+        copy: no
+
+    - name: Redmineのソースコードをredmine_dirにコピー
+      command: "cp -r {{ work_dir }}/redmine-{{ redmine_version }} {{ redmine_dir }}"
+  when: not redmine_dir_stat.stat.exists
+
+- name: database.ymlの作成
+  template:
+    src=redmine/database.yml
+    dest={{ redmine_dir }}/config/database.yml
+    force=no
+  register:
+    result_database_yml
+
+- name: configuration.ymlの作成
+  template:
+    src=redmine/configuration.yml
+    dest={{ redmine_dir }}/config/configuration.yml
+    force=no
+
+- name: Gemfile.lockが存在するか確認
+  command:
+    test -f {{ redmine_dir }}/Gemfile.lock
+  register:
+    result_test_gemfile
+  failed_when: result_test_gemfile.rc not in [0, 1]
+  changed_when: false
+
+- name: gemsパッケージのインストール
+  command:
+    bundle install --path vendor/bundle
+    chdir={{ redmine_dir }}
+  environment:
+    PATH: "/usr/local/bin:{{ ansible_env.PATH }}"
+  when:
+    result_test_gemfile.rc == 1
+
+- name: gemsパッケージのアップデート
+  command:
+    bundle update
+    chdir={{ redmine_dir }}
+  environment:
+    PATH: "/usr/local/bin:{{ ansible_env.PATH }}"
+  when:
+    result_test_gemfile.rc == 0
+
+- name: secret tokenの作成
+  command:
+    bundle exec rake generate_secret_token
+    chdir={{ redmine_dir }}
+  environment:
+    PATH: "/usr/local/bin:{{ ansible_env.PATH }}"
+    RAILS_ENV: production
+
+- name: データベースのマイグレーション
+  command:
+    bundle exec rake db:migrate
+    chdir={{ redmine_dir }}
+  environment:
+    PATH: "/usr/local/bin:{{ ansible_env.PATH }}"
+    RAILS_ENV: production
+
+- name: デフォルトデータ(日本語)をロード
+  command:
+    bundle exec rake redmine:load_default_data
+    chdir={{ redmine_dir }}
+  environment:
+    PATH: "/usr/local/bin:{{ ansible_env.PATH }}"
+    RAILS_ENV: production
+    REDMINE_LANG: ja
+  when:
+    result_database_yml|changed
+
+- name: デフォルトの言語を日本語に変更
+  command:
+    bundle exec rails r 'Setting["default_language"]="ja"'
+    chdir={{ redmine_dir }}
+  environment:
+    PATH: "/usr/local/bin:{{ ansible_env.PATH }}"
+    RAILS_ENV: production
+  when:
+    result_database_yml|changed
+
+- name: ユーザー名の表示形式を「姓 名」に変更
+  command:
+    bundle exec rails r 'Setting["user_format"]=:lastname_firstname'
+    chdir={{ redmine_dir }}
+  environment:
+    PATH: "/usr/local/bin:{{ ansible_env.PATH }}"
+    RAILS_ENV: production
+  when:
+    result_database_yml|changed
+
+- name: 添付ファイルとリポジトリのエンコーディングを設定
+  command:
+    bundle exec rails r 'Setting["repositories_encodings"]="UTF-8,CP932,EUC-JP"'
+    chdir={{ redmine_dir }}
+  environment:
+    PATH: "/usr/local/bin:{{ ansible_env.PATH }}"
+    RAILS_ENV: production
+  when:
+    result_database_yml|changed
+
+- name: 添付ファイルのサムネイルを表示
+  command:
+    bundle exec rails r 'Setting["thumbnails_enabled"]="1"'
+    chdir={{ redmine_dir }}
+  environment:
+    PATH: "/usr/local/bin:{{ ansible_env.PATH }}"
+    RAILS_ENV: production
+  when:
+    result_database_yml|changed

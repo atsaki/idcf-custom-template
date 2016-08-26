@@ -42,7 +42,7 @@
 
 - name: "cloud.cfgの作成"
   template:
-    src: "templates/etc/cloud/cloud.cfg.j2"
+    src: "etc/cloud/cloud.cfg.j2"
     dest: "/etc/cloud/cloud.cfg"
 
 - name: "syslogユーザーを追加"

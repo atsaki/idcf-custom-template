@@ -16,11 +16,15 @@ Ubuntu1404-Vagrant
 [redash]
 redash
 
+[redmine]
+redmine
+
 [cloudstack_template:children]
 standard
 large_disk
 vagrant_box
 redash
+redmine
 
 [cloud_init:children]
 cloudstack_template

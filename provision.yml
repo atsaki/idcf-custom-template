@@ -26,3 +26,12 @@
         vm_name: "{{ inventory_hostname }}"
   roles:
     - role: redash
+
+- hosts: redmine
+  gather_facts: no
+  pre_tasks:
+    - include: tasks/set_ansible_ssh_host.yml
+      vars:
+        vm_name: "{{ inventory_hostname }}"
+  roles:
+    - role: redmine

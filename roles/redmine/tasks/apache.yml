@@ -1,0 +1,56 @@
+- name: Redmineディレクトリ以下のオーナーを変更
+  command:
+    chown -R {{ redmine_dir_owner }} {{ redmine_dir }}
+
+- name: Passengerがインストールされているか確認
+  command:
+    test -f /usr/local/bin/passenger-install-apache2-module
+  register:
+    result
+  failed_when: result.rc not in [0, 1]
+  changed_when: false
+
+- name: Passengerをインストール
+  gem:
+    name=passenger
+    user_install=no
+  environment:
+    PATH: "/usr/local/bin:{{ ansible_env.PATH }}"
+  when: result.rc == 1
+
+- name: PassengerのApache用モジュールのインストール
+  command:
+    passenger-install-apache2-module --auto
+  environment:
+    PATH: "/usr/local/bin:{{ ansible_env.PATH }}"
+  when: result.rc == 1
+
+- name: PassengerのApache用モジュールの設定を取得
+  command:
+    passenger-install-apache2-module --snippet
+  environment:
+    PATH: "/usr/local/bin:{{ ansible_env.PATH }}"
+  register:
+    passenger_snippet_vars
+  changed_when: false
+
+- name: redmine.confの作成
+  template:
+    src=apache/redmine.conf
+    dest=/etc/apache2/conf-available/redmine.conf
+
+- name: Redmineに /redmine でアクセスするためのシンボリックリンク作成
+  file:
+    state=link
+    src={{ redmine_dir }}/public
+    dest=/var/www/html/redmine
+
+- name: Redmine用のApacheの設定を有効にする
+  command:
+    a2enconf redmine
+
+- name: Apacheの再起動
+  service:
+    name=apache2
+    state=restarted
+    enabled=yes
